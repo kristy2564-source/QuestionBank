@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>智能题库</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f7f8fa;--surface:#fff;--border:#e5e6eb;
+  --text:#1d2129;--text2:#4e5969;--text3:#86909c;
+  --primary:#3370ff;--primary-bg:#e8f0ff;--primary-hover:#2860e0;
+  --success:#00b42a;--success-bg:#e8ffea;
+  --danger:#f53f3f;--danger-bg:#ffece8;
+  --amber:#ff7d00;--amber-bg:#fff7e8;
+  --radius:10px;--shadow:0 1px 4px rgba(0,0,0,.06);
+  --font:'Noto Sans SC',system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh}
+
+/* layout */
+.shell{max-width:920px;margin:0 auto;padding:24px 20px 40px}
+header{display:flex;align-items:center;gap:12px;margin-bottom:24px}
+header h1{font-size:22px;font-weight:600;letter-spacing:-.3px}
+header .badge{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--primary-bg);color:var(--primary);font-weight:500}
+
+/* tabs */
+.tabs{display:flex;gap:4px;background:var(--surface);border-radius:var(--radius);padding:4px;box-shadow:var(--shadow);margin-bottom:20px}
+.tab{flex:1;padding:10px 0;text-align:center;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;color:var(--text2);transition:all .2s;border:none;background:none;user-select:none}
+.tab:hover{color:var(--text)}
+.tab.active{background:var(--primary);color:#fff;box-shadow:0 2px 8px rgba(51,112,255,.25)}
+
+/* panels */
+.panel{display:none}
+.panel.active{display:block}
+
+/* card */
+.card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;margin-bottom:16px}
+.card-title{font-size:14px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.card-title .dot{width:6px;height:6px;border-radius:50%;background:var(--primary)}
+
+/* form elements */
+label.field{display:block;font-size:13px;font-weight:500;color:var(--text2);margin-bottom:6px}
+textarea,input[type=text],select{
+  width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;
+  font-size:14px;font-family:var(--font);background:var(--surface);color:var(--text);
+  transition:border-color .15s;outline:none;resize:vertical
+}
+textarea:focus,input[type=text]:focus,select:focus{border-color:var(--primary)}
+textarea{min-height:100px}
+select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2386909c' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+
+.row{display:flex;gap:12px;align-items:end}
+.row>*{flex:1}
+.gap-sm{gap:8px}
+.mt{margin-top:12px}
+
+/* buttons */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  padding:10px 20px;border:none;border-radius:8px;font-size:14px;font-weight:500;
+  font-family:var(--font);cursor:pointer;transition:all .15s;user-select:none
+}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-hover)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
+.btn-ghost:hover{border-color:var(--text3)}
+.btn-sm{padding:6px 14px;font-size:13px}
+.btn-danger{background:var(--danger);color:#fff}
+
+/* output */
+.output{
+  background:#fafbfc;border:1px solid var(--border);border-radius:8px;
+  padding:16px;min-height:120px;max-height:480px;overflow-y:auto;
+  font-size:14px;line-height:1.8;white-space:pre-wrap;word-break:break-word
+}
+.output:empty::before{content:'等待回复...';color:var(--text3)}
+.output .chunk{margin-bottom:8px;padding:8px 12px;background:var(--surface);border-radius:6px;border-left:3px solid var(--primary)}
+
+/* status */
+.status{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);margin-top:8px}
+.status .spinner{width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* upload zone */
+.upload-zone{
+  border:2px dashed var(--border);border-radius:var(--radius);padding:32px;
+  text-align:center;cursor:pointer;transition:all .2s
+}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--primary);background:var(--primary-bg)}
+.upload-zone input{display:none}
+.upload-zone .icon{font-size:32px;margin-bottom:8px;color:var(--text3)}
+.upload-zone p{font-size:13px;color:var(--text2)}
+.upload-zone .hint{font-size:12px;color:var(--text3);margin-top:4px}
+
+/* file list */
+.file-item{
+  display:flex;align-items:center;gap:10px;padding:10px 12px;
+  background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-top:8px
+}
+.file-item .name{flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-item .size{font-size:12px;color:var(--text3)}
+.file-item .status-badge{font-size:11px;padding:2px 8px;border-radius:12px;font-weight:500}
+.file-item .status-badge.pending{background:var(--amber-bg);color:var(--amber)}
+.file-item .status-badge.ok{background:var(--success-bg);color:var(--success)}
+.file-item .status-badge.err{background:var(--danger-bg);color:var(--danger)}
+
+/* compose form */
+.compose-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.counts-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.count-chip{
+  display:flex;align-items:center;gap:4px;padding:4px 10px;
+  background:var(--primary-bg);border-radius:16px;font-size:13px;color:var(--primary)
+}
+.count-chip button{background:none;border:none;cursor:pointer;color:var(--primary);font-size:16px;line-height:1}
+
+/* toast */
+.toast{
+  position:fixed;top:20px;left:50%;transform:translateX(-50%);
+  padding:10px 20px;border-radius:8px;font-size:13px;font-weight:500;
+  box-shadow:0 4px 12px rgba(0,0,0,.1);z-index:999;opacity:0;transition:opacity .3s;pointer-events:none
+}
+.toast.show{opacity:1}
+.toast.ok{background:var(--success);color:#fff}
+.toast.err{background:var(--danger);color:#fff}
+
+/* markdown-ish rendering */
+.md-output h1,.md-output h2,.md-output h3{font-weight:600;margin:12px 0 6px}
+.md-output h1{font-size:18px} .md-output h2{font-size:16px} .md-output h3{font-size:15px}
+.md-output p{margin:4px 0}
+.md-output ul,.md-output ol{padding-left:20px;margin:4px 0}
+.md-output code{background:#f0f1f3;padding:1px 5px;border-radius:4px;font-size:13px}
+.md-output pre{background:#f0f1f3;padding:12px;border-radius:6px;overflow-x:auto;font-size:13px}
+
+/* exam rendering */
+.exam-title{font-size:18px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid var(--primary)}
+.exam-section{margin:16px 0 8px;font-size:15px;font-weight:600;color:var(--primary)}
+.q-card{margin:8px 0;padding:12px 16px;background:var(--bg);border-radius:8px;border-left:3px solid var(--primary);line-height:1.8}
+.q-card .q-num{font-weight:600;color:var(--primary);margin-right:6px}
+.q-card .q-opts{margin:6px 0 6px 20px}
+.q-card .q-opt{display:block;margin:2px 0}
+.q-card .q-answer{margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);font-size:13px;color:var(--success)}
+.q-card .q-explain{font-size:13px;color:var(--text3);margin-top:4px}
+.q-card .q-meta{font-size:12px;color:var(--text3);margin-top:4px}
+
+@media(max-width:640px){
+  .compose-grid{grid-template-columns:1fr}
+  .row{flex-direction:column}
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <header>
+    <h1>智能题库</h1>
+    <span class="badge">Beta</span>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="qa">知识问答</button>
+    <button class="tab" data-tab="upload">文档上传</button>
+    <button class="tab" data-tab="compose">智能组卷</button>
+  </div>
+
+  <!-- ============ 知识问答 ============ -->
+  <div class="panel active" id="panel-qa">
+    <div class="card">
+      <div class="card-title"><span class="dot"></span>向题库提问</div>
+      <label class="field">输入问题</label>
+      <textarea id="qa-input" placeholder="例如：请给我5道关于牛顿第二定律的选择题，难度中等"></textarea>
+      <div class="row mt">
+        <div style="flex:0 0 auto;display:flex;align-items:center;gap:16px">
+          <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="checkbox" id="qa-stream" checked> 流式输出
+          </label>
+        </div>
+        <div style="flex:0 0 auto;display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" id="qa-clear">清空</button>
+          <button class="btn btn-primary" id="qa-send">发送</button>
+        </div>
+      </div>
+    </div>
+    <details class="card" style="cursor:pointer">
+      <summary style="font-size:13px;font-weight:500;color:var(--text2)">高级过滤（可选）</summary>
+      <div style="margin-top:10px">
+        <label class="field">过滤条件 JSON</label>
+        <textarea id="qa-filter" style="min-height:60px;font-family:var(--font)" placeholder='{"doc_filter":{"expr":"学科 == &apos;物理&apos; && 学段 == &apos;高中&apos;"}}'></textarea>
+      </div>
+    </details>
+    <div class="card">
+      <div class="card-title"><span class="dot"></span>回复</div>
+      <div class="output md-output" id="qa-output"></div>
+      <div class="status" id="qa-status" style="display:none"><div class="spinner"></div><span>正在思考...</span></div>
+    </div>
+  </div>
+
+  <!-- ============ 文档上传 ============ -->
+  <div class="panel" id="panel-upload">
+    <div class="card">
+      <div class="card-title"><span class="dot"></span>上传文档到知识库</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:12px">选择本地文件，系统会自动上传到 TOS 并导入知识库。支持 PDF、Word、TXT、Markdown、PPT 格式。</p>
+
+      <div class="upload-zone" id="up-dropzone" onclick="document.getElementById('up-file').click()">
+        <input type="file" id="up-file" accept=".pdf,.docx,.doc,.txt,.md,.pptx,.ppt,.xlsx,.csv">
+        <div class="icon">&#128196;</div>
+        <p>点击选择文件，或拖拽文件到此处</p>
+        <div class="hint">支持 PDF、Word、TXT、Markdown、PPT（单个文件最大 200MB）</div>
+      </div>
+      <div id="up-file-info" style="display:none" class="file-item mt">
+        <span class="name" id="up-file-name"></span>
+        <span class="size" id="up-file-size"></span>
+        <button class="btn btn-ghost btn-sm" onclick="clearFile()">移除</button>
+      </div>
+
+      <div class="row mt">
+        <div>
+          <label class="field">文档名称（可选，默认用文件名）</label>
+          <input type="text" id="up-name" placeholder="自动使用文件名">
+        </div>
+        <div>
+          <label class="field">描述（可选）</label>
+          <input type="text" id="up-desc" placeholder="例如：高一物理期中试卷">
+        </div>
+      </div>
+      <div class="mt">
+        <button class="btn btn-primary" id="up-submit" disabled>上传到知识库</button>
+      </div>
+    </div>
+
+    <details class="card" style="cursor:pointer">
+      <summary style="font-size:13px;font-weight:500;color:var(--text2)">通过 URL 上传（高级）</summary>
+      <div style="margin-top:10px">
+        <label class="field">文档公网 URL</label>
+        <input type="text" id="up-url" placeholder="https://example.com/your-document.pdf">
+        <div class="row mt">
+          <div>
+            <label class="field">文档类型</label>
+            <select id="up-doctype">
+              <option value="pdf">PDF</option>
+              <option value="docx">Word</option>
+              <option value="txt">TXT</option>
+              <option value="md">Markdown</option>
+            </select>
+          </div>
+          <div style="flex:0 0 auto;align-self:end">
+            <button class="btn btn-ghost" id="up-url-submit">URL 上传</button>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <div class="card">
+      <div class="card-title"><span class="dot"></span>上传结果</div>
+      <div id="up-results"></div>
+      <div class="output" id="up-output" style="min-height:60px"></div>
+      <div class="status" id="up-status" style="display:none"><div class="spinner"></div><span>正在上传...</span></div>
+    </div>
+  </div>
+
+  <!-- ============ 智能组卷 ============ -->
+  <div class="panel" id="panel-compose">
+    <div class="card">
+      <div class="card-title"><span class="dot"></span>组卷参数</div>
+      <div class="compose-grid">
+        <div>
+          <label class="field">试卷标题</label>
+          <input type="text" id="cp-title" placeholder="例如：高一物理期中测试">
+        </div>
+        <div>
+          <label class="field">学科</label>
+          <input type="text" id="cp-subject" placeholder="物理 / 数学 / 英语…">
+        </div>
+        <div>
+          <label class="field">学段/年级</label>
+          <input type="text" id="cp-grade" placeholder="高一 / 初三…">
+        </div>
+        <div>
+          <label class="field">难度</label>
+          <select id="cp-diff">
+            <option value="">不限</option>
+            <option value="简单">简单</option>
+            <option value="中等">中等</option>
+            <option value="较难">较难</option>
+          </select>
+        </div>
+      </div>
+      <div class="mt">
+        <label class="field">题型与数量</label>
+        <div class="row gap-sm" style="align-items:center">
+          <select id="cp-type-sel" style="max-width:160px">
+            <option value="single_choice">单选题</option>
+            <option value="multiple_choice">多选题</option>
+            <option value="fill_blank">填空题</option>
+            <option value="short_answer">简答题</option>
+            <option value="true_false">判断题</option>
+          </select>
+          <input type="number" id="cp-type-count" min="1" max="50" value="5" style="max-width:80px">
+          <button class="btn btn-ghost btn-sm" id="cp-add-type">添加</button>
+        </div>
+        <div class="counts-row" id="cp-counts"></div>
+      </div>
+      <div class="mt">
+        <label class="field">补充说明（可选）</label>
+        <textarea id="cp-extra" style="min-height:60px" placeholder="例如：侧重力学部分，需包含实验题"></textarea>
+      </div>
+      <div class="mt">
+        <button class="btn btn-primary" id="cp-send">生成试卷</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="dot"></span>生成结果</div>
+      <div class="output md-output" id="cp-output"></div>
+      <div class="status" id="cp-status" style="display:none"><div class="spinner"></div><span>正在生成试卷，请稍候...</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---- Utils ---- */
+function $(id){return document.getElementById(id)}
+function toast(msg,ok=true){const t=$('toast');t.textContent=msg;t.className='toast show '+(ok?'ok':'err');setTimeout(()=>t.classList.remove('show'),2500)}
+function setLoading(id,on){$(id).style.display=on?'flex':'none'}
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+// 渲染 LaTeX 公式
+function renderMath(el){
+  if(typeof renderMathInElement==='function'){
+    renderMathInElement(el,{
+      delimiters:[
+        {left:'$$',right:'$$',display:true},
+        {left:'$',right:'$',display:false},
+        {left:'\\[',right:'\\]',display:true},
+        {left:'\\(',right:'\\)',display:false}
+      ],
+      throwOnError:false
+    });
+  }
+}
+
+// Markdown 简易渲染
+function simpleMarkdown(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+    .replace(/`(.*?)`/g,'<code>$1</code>')
+    .replace(/\n/g,'<br>');
+}
+
+/* ---- Tabs ---- */
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    $('panel-'+t.dataset.tab).classList.add('active');
+  });
+});
+
+/* ============ Q&A ============ */
+$('qa-send').addEventListener('click', askQuestion);
+$('qa-clear').addEventListener('click', ()=>{$('qa-output').textContent='';$('qa-input').value=''});
+$('qa-input').addEventListener('keydown', e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey))askQuestion()});
+
+async function askQuestion(){
+  const q=$('qa-input').value.trim();
+  if(!q){toast('请输入问题',false);return}
+  const out=$('qa-output');
+  out.textContent='';
+  out.innerHTML='';
+  setLoading('qa-status',true);
+  $('qa-send').disabled=true;
+
+  const body={stream:$('qa-stream').checked, messages:[{role:'user',content:q}]};
+  const ft=$('qa-filter').value.trim();
+  if(ft){try{body.query_param=JSON.parse(ft)}catch(e){toast('过滤条件JSON格式错误',false)}}
+
+  try{
+    const resp=await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!resp.ok){out.textContent='错误: '+resp.status+' '+(await resp.text());return}
+
+    // 非流式
+    if(!$('qa-stream').checked||!resp.body){
+      const data=await resp.json();
+      if(data.data && data.data.generated_answer){
+        out.innerHTML=simpleMarkdown(data.data.generated_answer);
+      } else if(data.data && data.data.choice && data.data.choice.message){
+        out.innerHTML=simpleMarkdown(data.data.choice.message.content||'');
+      } else {
+        out.textContent=JSON.stringify(data,null,2);
+      }
+      renderMath(out);
+      return;
+    }
+
+    // 流式
+    const reader=resp.body.getReader();
+    const dec=new TextDecoder();
+    let buf='';
+    let fullAnswer='';
+    while(true){
+      const{value,done}=await reader.read();
+      if(done)break;
+      buf+=dec.decode(value,{stream:true});
+      let idx;
+      while((idx=buf.indexOf("\n"))!==-1){
+        let line=buf.slice(0,idx).trim();
+        buf=buf.slice(idx+1);
+        if(!line)continue;
+        if(line.startsWith("data:"))line=line.slice(5);
+        if(!line)continue;
+        try{
+          const obj=JSON.parse(line);
+          if(obj.data && obj.data.end)break;
+          if(obj.data && obj.data.generated_answer){
+            fullAnswer+=obj.data.generated_answer;
+            out.textContent=fullAnswer;
+          }
+        }catch{}
+      }
+    }
+    // 最终渲染 markdown + math
+    if(fullAnswer){
+      out.innerHTML=simpleMarkdown(fullAnswer);
+      renderMath(out);
+    }
+  }catch(e){out.textContent='请求失败: '+e.message}
+  finally{setLoading('qa-status',false);$('qa-send').disabled=false}
+}
+
+/* ============ Upload ============ */
+const upFile=$('up-file');
+const upDrop=$('up-dropzone');
+
+upFile.addEventListener('change',()=>{
+  if(upFile.files.length>0) showFileInfo(upFile.files[0]);
+});
+upDrop.addEventListener('dragover',e=>{e.preventDefault();upDrop.classList.add('drag')});
+upDrop.addEventListener('dragleave',()=>upDrop.classList.remove('drag'));
+upDrop.addEventListener('drop',e=>{
+  e.preventDefault();upDrop.classList.remove('drag');
+  if(e.dataTransfer.files.length>0){upFile.files=e.dataTransfer.files;showFileInfo(e.dataTransfer.files[0])}
+});
+
+function showFileInfo(f){
+  $('up-file-info').style.display='flex';
+  $('up-file-name').textContent=f.name;
+  $('up-file-size').textContent=(f.size/1024/1024).toFixed(2)+' MB';
+  $('up-submit').disabled=false;
+}
+function clearFile(){
+  upFile.value='';
+  $('up-file-info').style.display='none';
+  $('up-submit').disabled=true;
+}
+
+$('up-submit').addEventListener('click', async()=>{
+  if(!upFile.files.length){toast('请选择文件',false);return}
+  const f=upFile.files[0];
+  const out=$('up-output');
+  out.textContent='';
+  setLoading('up-status',true);
+  $('up-submit').disabled=true;
+
+  const fd=new FormData();
+  fd.append('file',f);
+  if($('up-name').value.trim()) fd.append('doc_name',$('up-name').value.trim());
+  if($('up-desc').value.trim()) fd.append('description',$('up-desc').value.trim());
+
+  try{
+    const resp=await fetch('/api/upload_file',{method:'POST',body:fd});
+    const data=await resp.json();
+    if(resp.ok && (!data.kb_result || data.kb_result.code===0)){
+      out.innerHTML='<div style="color:var(--success)">上传成功！文档正在处理中，请稍等几分钟后在问答中测试检索效果。</div><br><pre style="font-size:12px;color:var(--text3)">'+esc(JSON.stringify(data,null,2))+'</pre>';
+      toast('上传成功');
+    } else {
+      out.textContent=JSON.stringify(data,null,2);
+      toast('上传失败: '+(data.kb_result?.message||resp.status),false);
+    }
+  }catch(e){out.textContent='错误: '+e.message;toast('请求失败',false)}
+  finally{setLoading('up-status',false);$('up-submit').disabled=false}
+});
+
+$('up-url-submit').addEventListener('click', async()=>{
+  const url=$('up-url').value.trim();
+  if(!url){toast('请输入URL',false);return}
+  const out=$('up-output');
+  out.textContent='上传中...';
+  const body={add_type:'url',url:url,doc_type:$('up-doctype').value,project:'default'};
+  if($('up-name').value.trim()) body.doc_name=$('up-name').value.trim();
+  try{
+    const resp=await fetch('/api/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const data=await resp.json();
+    out.textContent=JSON.stringify(data,null,2);
+    if(resp.ok && data.code===0) toast('上传成功');
+    else toast('上传失败: '+(data.message||resp.status),false);
+  }catch(e){out.textContent='错误: '+e.message;toast('请求失败',false)}
+});
+
+/* ============ Compose ============ */
+const typeCounts={};
+const typeNames={single_choice:'单选题',multiple_choice:'多选题',fill_blank:'填空题',short_answer:'简答题',true_false:'判断题',calculation:'计算题',proof:'证明题'};
+
+$('cp-add-type').addEventListener('click',()=>{
+  const t=$('cp-type-sel').value;
+  const c=parseInt($('cp-type-count').value)||5;
+  typeCounts[t]=c;
+  renderCounts();
+});
+
+function renderCounts(){
+  const el=$('cp-counts');
+  el.innerHTML='';
+  Object.entries(typeCounts).forEach(([k,v])=>{
+    const chip=document.createElement('span');
+    chip.className='count-chip';
+    chip.innerHTML=`${typeNames[k]||k} ×${v} <button onclick="delete typeCounts['${k}'];renderCounts()">✕</button>`;
+    el.appendChild(chip);
+  });
+}
+
+$('cp-send').addEventListener('click', compose);
+
+async function compose(){
+  const out=$('cp-output');
+  out.textContent='';
+  out.innerHTML='';
+  setLoading('cp-status',true);
+  $('cp-send').disabled=true;
+
+  const body={
+    title:$('cp-title').value.trim(),
+    subject:$('cp-subject').value.trim(),
+    grade:$('cp-grade').value.trim(),
+    difficulty:$('cp-diff').value,
+    counts:Object.keys(typeCounts).length?typeCounts:undefined
+  };
+  const extra=$('cp-extra').value.trim();
+  if(extra){body.tags=[extra]}
+
+  try{
+    const resp=await fetch('/api/compose',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!resp.ok){out.textContent='错误: '+resp.status+' '+(await resp.text());return}
+    const data=await resp.json();
+    renderCompose(data, out);
+  }catch(e){out.textContent='请求失败: '+e.message}
+  finally{setLoading('cp-status',false);$('cp-send').disabled=false}
+}
+
+function renderCompose(data, el){
+  // 尝试从 LLM 输出中提取文本
+  let llmText='';
+  if(data.llm && data.llm.output){
+    const items=data.llm.output;
+    if(Array.isArray(items)){
+      for(const it of items){
+        if(it.type==='message'&&it.content){
+          for(const c of it.content){if(c.type==='output_text')llmText+=c.text}
+        }
+      }
+    }
+  }
+
+  // 如果 LLM 返回了结构化 JSON 试卷
+  if(llmText){
+    const jsonMatch=llmText.match(/```json\s*([\s\S]*?)```/);
+    if(jsonMatch){
+      try{
+        const exam=JSON.parse(jsonMatch[1]);
+        el.innerHTML=renderExamHTML(exam);
+        renderMath(el);
+        return;
+      }catch{}
+    }
+    try{
+      const exam=JSON.parse(llmText);
+      el.innerHTML=renderExamHTML(exam);
+      renderMath(el);
+      return;
+    }catch{}
+    // LLM 返回了文本但不是 JSON，直接渲染
+    el.innerHTML=simpleMarkdown(llmText);
+    renderMath(el);
+    return;
+  }
+
+  // 没有 LLM 输出，渲染知识库检索结果
+  let resultList=[];
+  if(data.search && data.search.data && data.search.data.result_list){
+    resultList=data.search.data.result_list;
+  }
+
+  if(resultList.length>0){
+    let h='<div class="exam-title">检索到的相关题目</div>';
+    resultList.forEach((item,i)=>{
+      const content=item.content||item.md_content||item.origin_text||'';
+      const docName=item.doc_info?.doc_name||'';
+      const chunkTitle=item.chunk_title||'';
+      const score=item.score?item.score.toFixed(3):'';
+
+      h+=`<div class="q-card">`;
+      h+=`<span class="q-num">${i+1}.</span>`;
+      if(chunkTitle) h+=`<strong>${esc(chunkTitle)}</strong><br>`;
+      h+=`<div style="margin-top:4px">${esc(content)}</div>`;
+      h+=`<div class="q-meta">`;
+      if(docName) h+=`来源：${esc(docName)}`;
+      if(score) h+=` | 相关度：${score}`;
+      h+=`</div></div>`;
+    });
+    el.innerHTML=h;
+    renderMath(el);
+  } else {
+    el.textContent=JSON.stringify(data,null,2);
+  }
+}
+
+function renderExamHTML(exam){
+  let h=`<div class="exam-title">${esc(exam.title||'试卷')}</div>`;
+  if(exam.sections){
+    exam.sections.forEach((sec,si)=>{
+      const secName=typeNames[sec.type]||sec.type||('第'+(si+1)+'部分');
+      const count=sec.count||sec.items?.length||0;
+      h+=`<div class="exam-section">${esc(secName)}（共${count}题）</div>`;
+      (sec.items||[]).forEach((it,ii)=>{
+        h+=`<div class="q-card">`;
+        h+=`<span class="q-num">${ii+1}.</span> ${esc(it.stem||'')}`;
+        if(it.options && it.options.length){
+          h+=`<div class="q-opts">`;
+          it.options.forEach((o,oi)=>{
+            h+=`<span class="q-opt">${String.fromCharCode(65+oi)}. ${esc(o)}</span>`;
+          });
+          h+=`</div>`;
+        }
+        const ans=Array.isArray(it.answer)?it.answer.join(', '):it.answer;
+        if(ans) h+=`<div class="q-answer">答案：${esc(ans)}</div>`;
+        if(it.explanation) h+=`<div class="q-explain">解析：${esc(it.explanation)}</div>`;
+        h+=`</div>`;
+      });
+    });
+  }
+  return h;
+}
+</script>
+</body>
+</html>
